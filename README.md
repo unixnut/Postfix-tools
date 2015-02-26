@@ -6,4 +6,4 @@ This script assumes `clamav-milter` and spamassassin have been installed.
 
 Then, in your Postfix main.cf, set:
 
-    - `smtpd_milters = unix:/spamass/spamass.sock, unix:/clamav/clamav-milter.ctl`
+    smtpd_milters = unix:/spamass/spamass.sock, unix:/clamav/clamav-milter.ctl
