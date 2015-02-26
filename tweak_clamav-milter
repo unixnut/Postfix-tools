@@ -1,0 +1,20 @@
+#! /bin/sh
+# tweak_clamav-milter -- adjust clamav-milter's config so its socket is available in a postfix chroot
+#
+# use "smtpd_milters = unix:/spamass/spamass.sock, unix:/clamav/clamav-milter.ctl"
+# and make sure smtpd is actually configured to run in a chroot (see master.cf)
+#
+# Note: /usr/share/doc/clamav-milter/README.Debian.gz (in v0.96.5+dfsg-1ubuntu1.10.04.2)
+# suggests making changes to /etc/default/clamav-milter; this is wrong as the
+# variables mentioned are no longer checked in /etc/init.d/clamav-milter
+
+set -e
+mkdir -p /var/spool/postfix/clamav/
+chown clamav:postfix /var/spool/postfix/clamav/
+chmod g+s /var/spool/postfix/clamav/
+
+cp -p /etc/clamav/clamav-milter.conf /etc/clamav/clamav-milter.conf.bak
+# change /etc/clamav/clamav-milter.conf so that clamav-milter creates its
+# socket file somewhere that postfix's smtpd can see it, rather than in
+# /var/run/clamav/clamav-milter.ctl
+sed -i 's@^\(MilterSocket\) .*@\1 /var/spool/postfix/clamav/clamav-milter.ctl@' /etc/clamav/clamav-milter.conf
