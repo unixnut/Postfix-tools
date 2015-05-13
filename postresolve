@@ -52,8 +52,10 @@ get_conf()
 {
   # postconf doesn't return a non-zero exit code on lookup failure
   result=$(postconf $1 2> /dev/null)
-  value=${result#*= }
-  if [ -n "$value" ] ; then
+  # the outptut of postconf will have a space after the "=" if there's a value
+  if [ -n "${result#*=}" ] ; then
+    # strip the name of the directive and the " = "
+    value=${result#*= }
     # check for a result starting with a dollar sign
     if [ "$(echo "$value" | cut -c1)" = '$' ] ; then
       # if found, string the dollar sign and recurse
