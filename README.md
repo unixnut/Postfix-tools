@@ -1,6 +1,10 @@
 # Postfix-tweaks
 Scripts and config for use with the Postfix MTA.
 
+## postresolve
+Since `sendmail -bv` doesn't work as expected, this fakes it to show you what a
+given user resolves to (e.g. by processing aliases)
+
 ## tweak_clamav-milter
 This script assumes `clamav-milter` and spamassassin have been installed.
 

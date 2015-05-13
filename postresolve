@@ -4,6 +4,7 @@
 # Version: 0.5
 # Copyright: (c)2015 Alastair Irvine <alastair@plug.org.au>
 # Keywords: postfix addresses e-mail
+# See: https://github.com/unixnut/Postfix-tweaks
 # Licence: This file is released under the GNU General Public License
 #
 # Description:
@@ -51,14 +52,14 @@ get_conf()
 {
   # postconf doesn't return a non-zero exit code on lookup failure
   result=$(postconf $1 2> /dev/null)
-  if [ -n "$result" ] ; then
-    value=${result#*= }
+  value=${result#*= }
+  if [ -n "$value" ] ; then
     # check for a result starting with a dollar sign
     if [ "$(echo "$value" | cut -c1)" = '$' ] ; then
       # if found, string the dollar sign and recurse
       get_conf "${value#$}"
     else
-      echo $value
+      echo "$value"
     fi
   else 
     # lookup failure
