@@ -1,0 +1,240 @@
+#! /bin/sh
+# postresolve (Bourne shell script) -- Perform limited Postfix-style address resolution
+#
+# Version: 0.5
+# Copyright: (c)2015 Alastair Irvine <alastair@plug.org.au>
+# Keywords: postfix addresses e-mail
+# Licence: This file is released under the GNU General Public License
+#
+# Description:
+#   Attempts to resolve an address as Postfix would.
+#   Note that this is only interested in local recipient addresses.
+#
+# As per http://www.postfix.org/ADDRESS_REWRITING_README.html#overview
+# these steps are followed:
+#   1. Canonical address mapping -- NOT YET
+#   2. Virtual aliasing
+#   3. Resolve address to destination (includes $virtual_mailbox_domains)
+#   4. $transport_maps -- NOT YET
+#   5. Relocated users table -- NOT YET
+#   6. Local alias database
+#   7. Local per-user .forward files
+#
+# Usage: 
+# Options:
+#   
+#
+# Licence details:
+#     This program is free software; you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation; either version 2 of the License, or (at
+#     your option) any later version.
+#
+#     See http://www.gnu.org/licenses/gpl-2.0.html for more information.
+#
+#     You can find the complete text of the GPLv2 in the file
+#     /usr/share/common-licenses/GPL-2 on Debian systems.
+#     Or see the file COPYING in the same directory as this program.
+#
+#
+# TO-DO:
+#   option -v to show intermediate addresses
+
+
+self=`basename "$0"`
+allowed_options=h
+allowed_long_options=help
+
+
+# *** FUNCTIONS ***
+get_conf()
+{
+  # postconf doesn't return a non-zero exit code on lookup failure
+  result=$(postconf $1 2> /dev/null)
+  if [ -n "$result" ] ; then
+    value=${result#*= }
+    # check for a result starting with a dollar sign
+    if [ "$(echo "$value" | cut -c1)" = '$' ] ; then
+      # if found, string the dollar sign and recurse
+      get_conf "${value#$}"
+    else
+      echo $value
+    fi
+  else 
+    # lookup failure
+    return 2
+  fi
+}
+
+
+resolve_alias()
+{
+  postalias -q "$1" $alias_maps |
+    sed 's/, /\n/g'
+}
+
+
+# Usage:
+#   $1: addr to look up
+#   $2: map to look in
+resolve_virtual()
+{
+  postmap -q "$1" $2 |
+    sed 's/, /\n/g'
+}
+
+
+resolve_addr()
+{
+  user=${1%@*}
+  domain=${1##*@}
+
+  # -- Virtual aliasing --
+  # Assume that $virtual_alias_domains has been set correctly or 
+  # $virtual_alias_maps files have domain-only entries
+  if [ -n "$virtual_alias_maps" ] ; then
+    # FIXME: support comma-separated
+    for map in $virtual_alias_maps ; do
+      results=$(resolve_virtual "$1" $map)
+      if [ -n "$results" ] ; then
+        # we got one or more results; resolve them recursively
+        for item in $results ; do
+          resolve $item
+        done
+        # don't bother checking any more maps or methods
+        return
+      fi
+    done
+  fi
+
+  # -- Resolve address to destination --
+  mailbox=
+  if [ -n "$virtual_mailbox_maps" ] ; then
+    # FIXME: support comma-separated
+    for map in $virtual_mailbox_maps ; do
+      result=$(resolve_virtual "$1" $map)
+      if [ -n "$result" ] ; then
+        # we got a partial file name
+        mailbox=$result
+        # don't bother checking any more maps
+        break
+      fi
+    done
+  fi
+
+  # FIXME: query $transport_maps to look up transport
+  transport=
+
+  if [ -n "$mailbox" ] ; then
+    if [ -z "$transport" ] ; then
+      transport=$(get_conf $virtual_transport)
+    fi
+
+    if [ "$transport" = virtual ] ; then
+      echo "$(get_conf virtual_mailbox_base)/$mailbox"
+    else
+      echo "via: $transport [$mailbox]"
+    fi
+    return
+  fi
+
+  # FIXME: test for local delivery (canonical domain) and reprocess
+
+  # default: assume external address
+  echo $1
+}
+
+
+resolve_local()
+{
+  # check for aliases, if any
+  results=$(resolve_alias "$1")
+  if [ -n "$results" ] ; then
+    # we got one or more aliases; resolve them recursively
+    for item in $results ; do
+      resolve $item
+    done
+  else
+    # no alias found; attemp local user lookup
+    if gecos=$(getent passwd "$1") ; then
+      # FIXME: query $transport_maps to look up transport
+      transport=
+
+      # TO-DO: process .forward file
+      echo "$1: local"
+    else
+      echo "$1 not found!"
+    fi
+  fi
+}
+
+
+resolve()
+{
+  case $1 in
+    /*)
+      echo $1
+      ;;
+
+    !|\"!)
+      echo "run command: $1"
+      ;;
+
+    *@*)
+      # it's a full e-mail address
+      ## echo $1
+      resolve_addr $1
+      ;;
+
+    *)
+      # it's just a (potential) local user
+      resolve_local "$1"
+      ;;
+  esac
+}
+
+
+# *** MAINLINE ***
+# == command-line parsing ==
+# -- defaults --
+debug=0
+verbose=0
+
+# -- option handling --
+set -e
+orthogonal_opts=$(getopt --shell=sh --name=$self \
+  --options=+$allowed_options --longoptions=$allowed_long_options -- "$@")
+eval set -- "$orthogonal_opts"
+set +e      # getopt would have already reported the error
+
+while [ x"$1" != x-- ] ; do
+  case "$1" in
+    -d) debug=$((debug + 1)) ;;
+    -v|--verbose) verbose=$((verbose + 1)) ;;
+    -h|--help) help ;;
+  esac
+  shift       # get rid of the option (or its arg if the inner shift already got rid it)
+done
+shift       # get rid of the "--"
+
+# -- argument checking --
+if [ $# != 1 ] ; then
+  echo "Usage: $self <addr>" >&2
+  exit 1
+fi
+
+
+# == preparation ==
+alias_maps=$(get_conf alias_maps)
+
+virtual_alias_maps=$(get_conf virtual_alias_maps)
+# for testing
+## virtual_alias_maps=hash:virtual
+
+virtual_mailbox_maps=$(get_conf virtual_mailbox_maps)
+# for testing
+## virtual_mailbox_maps=hash:virtual_mailboxen
+
+
+# == processing ==
+resolve $1
