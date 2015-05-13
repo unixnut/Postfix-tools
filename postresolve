@@ -133,7 +133,7 @@ resolve_addr()
 
   if [ -n "$mailbox" ] ; then
     if [ -z "$transport" ] ; then
-      transport=$(get_conf $virtual_transport)
+      transport=$(get_conf virtual_transport)
     fi
 
     if [ "$transport" = virtual ] ; then
@@ -166,7 +166,7 @@ resolve_local()
     # no alias found; attemp local user lookup
     if gecos=$(getent passwd "$1") ; then
       # FIXME: query $transport_maps to look up transport
-      transport=$(get_conf $local_transport)
+      transport=$(get_conf local_transport)
 
       # TO-DO: process .forward file
       case $mode in
