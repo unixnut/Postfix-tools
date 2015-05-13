@@ -21,9 +21,11 @@
 #   6. Local alias database
 #   7. Local per-user .forward files
 #
-# Usage: 
+# Usage: postresolve [ -f ] [ -b | -c ] [ -l ] <addr>
 # Options:
-#   
+#   -b | --brief        Don't annotate users, filenames, etc.
+#   -c | --compatible   Produce output similar to "sendmail -bv" on a sendmail system
+#   -l | --local-only   Show local addresses only
 #
 # Licence details:
 #     This program is free software; you can redistribute it and/or modify
@@ -40,11 +42,12 @@
 #
 # TO-DO:
 #   option -v to show intermediate addresses
+#   option -f | --first-only   Quit after showing the first user
 
 
 self=`basename "$0"`
-allowed_options=h
-allowed_long_options=help
+allowed_options=fbclh
+allowed_long_options=help,brief,compatible,local-only
 
 
 # *** FUNCTIONS ***
@@ -141,10 +144,12 @@ resolve_addr()
     return
   fi
 
-  # FIXME: test for local delivery (canonical domain) and reprocess
+  # FIXME: test for local delivery (to a canonical domain) and reprocess
 
-  # default: assume external address
-  echo $1
+  if [ $local_only = n ] ; then
+    # default: assume external address
+    echo $1
+  fi
 }
 
 
@@ -161,10 +166,24 @@ resolve_local()
     # no alias found; attemp local user lookup
     if gecos=$(getent passwd "$1") ; then
       # FIXME: query $transport_maps to look up transport
-      transport=
+      transport=$(get_conf $local_transport)
 
       # TO-DO: process .forward file
-      echo "$1: local"
+      case $mode in
+        standard)
+          # TO-DO: mention $transport in same way as resolve_addr
+          echo "$1: local"
+          ;;
+
+        brief)
+          echo "$1"
+          ;;
+
+        compatible)
+          # see sendmail source or spamass-milter.cpp line 861
+          echo "... deliverable: mailer $transport, user $1"
+          ;;
+      esac
     else
       echo "$1 not found!"
     fi
@@ -202,6 +221,11 @@ resolve()
 # -- defaults --
 debug=0
 verbose=0
+brief=n
+first_only=n
+local_only=n
+mode=standard
+
 
 # -- option handling --
 set -e
@@ -212,6 +236,10 @@ set +e      # getopt would have already reported the error
 
 while [ x"$1" != x-- ] ; do
   case "$1" in
+    -b|--brief)      mode=brief ;;
+    -c|--compatible) mode=compatible ;;
+    -f|--first-only) first_only=y ;;
+    -l|--local-only) local_only=y ;;
     -d) debug=$((debug + 1)) ;;
     -v|--verbose) verbose=$((verbose + 1)) ;;
     -h|--help) help ;;

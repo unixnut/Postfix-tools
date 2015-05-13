@@ -1,0 +1,6 @@
+# file types
+*.pyc
+\#*\#
+.*.sw?
+## *.desktop
+*.old
