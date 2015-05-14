@@ -1,7 +1,7 @@
 #! /bin/sh
 # postresolve (Bourne shell script) -- Perform limited Postfix-style address resolution
 #
-# Version: 0.5
+# Version: 0.8
 # Copyright: (c)2015 Alastair Irvine <alastair@plug.org.au>
 # Keywords: postfix addresses e-mail
 # See: https://github.com/unixnut/Postfix-tweaks
@@ -70,7 +70,7 @@ get_conf()
     value=${result#*= }
     # check for a result starting with a dollar sign
     if [ $interpolate = y -a "$(echo "$value" | cut -c1)" = '$' ] ; then
-      # if found, string the dollar sign and recurse
+      # if found, remove the dollar sign and recurse
       get_conf "${value#$}"
     else
       echo "$value"
@@ -173,7 +173,7 @@ resolve_addr()
 
   if [ $local_only = n ] ; then
     # default: assume external address
-    echo $1
+    echo "$1"
   fi
 }
 
@@ -185,7 +185,7 @@ resolve_local()
   if [ -n "$results" ] ; then
     # we got one or more aliases; resolve them recursively
     for item in $results ; do
-      resolve $item
+      resolve "$item"
     done
   else
     # no alias found; attemp local user lookup
@@ -230,7 +230,7 @@ resolve()
     *@*)
       # it's a full e-mail address
       ## echo $1
-      resolve_addr $1
+      resolve_addr "$1"
       ;;
 
     *)
@@ -301,4 +301,5 @@ virtual_mailbox_maps=$(get_conf virtual_mailbox_maps)
 
 
 # == processing ==
-resolve $(echo "$1" | sed 's/<\(.*\)>/\1/')
+# strip angle brackets off argument
+resolve "$(echo "$1" | sed 's/<\(.*\)>/\1/')"
