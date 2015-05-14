@@ -51,8 +51,16 @@ allowed_long_options=help,brief,compatible,local-only
 
 
 # *** FUNCTIONS ***
+# Usage: get_conf [ -n ] <var>
 get_conf()
 {
+  # determine whether or not to interpolate "$xyz" at start of value
+  if [ "x$1" = x-n ] ; then
+    interpolate=n
+  else
+    interpolate=y
+  fi
+
   # postconf doesn't return a non-zero exit code on lookup failure
   result=$(postconf $1 2> /dev/null)
   # the outptut of postconf will have a space after the "=" if there's a value
@@ -60,7 +68,7 @@ get_conf()
     # strip the name of the directive and the " = "
     value=${result#*= }
     # check for a result starting with a dollar sign
-    if [ "$(echo "$value" | cut -c1)" = '$' ] ; then
+    if [ $interpolate = y -a "$(echo "$value" | cut -c1)" = '$' ] ; then
       # if found, string the dollar sign and recurse
       get_conf "${value#$}"
     else
@@ -145,8 +153,9 @@ resolve_addr()
   fi
 
   # test for local delivery (to a canonical domain) and reprocess
-  for dest in $(echo $(get_conf mydestination) $(get_conf inet_interfaces) $(get_conf proxy_interfaces) |
-                sed -e 's/,//g' -e 's/loopback-only/127.0.0.1/') ; do
+  # TO-DO: replace " all " (or at EOL) with all addresses
+  for dest in $(echo $(get_conf -n mydestination) $(get_conf inet_interfaces) $(get_conf proxy_interfaces) |
+                       sed -e "s/\$myorigin/$myorigin/g" -e 's/,//g' -e 's/loopback-only/127.0.0.1/') ; do
     if [ "$dest" = "$domain" ] ; then
       resolve_local "$user"
       # don't bother checking any more maps or methods
@@ -264,6 +273,12 @@ fi
 
 
 # == preparation ==
+myorigin=$(get_conf myorigin)
+# check if it's a file reference
+if [ "$(echo $myorigin | cut -c1)" = '/' ] ; then
+  myorigin=$(cat $myorigin)
+fi
+
 alias_maps=$(get_conf alias_maps)
 
 virtual_alias_maps=$(get_conf virtual_alias_maps)
