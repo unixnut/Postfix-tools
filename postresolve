@@ -43,6 +43,7 @@
 # TO-DO:
 #   option -v to show intermediate addresses
 #   option -f | --first-only   Quit after showing the first user
+#   avoid splitting alias lookup results that are quoted commands
 
 
 self=`basename "$0"`
@@ -167,6 +168,8 @@ resolve_addr()
       return
     fi
   done
+
+  # FIXME: handle $relay_domains
 
   if [ $local_only = n ] ; then
     # default: assume external address
@@ -298,4 +301,4 @@ virtual_mailbox_maps=$(get_conf virtual_mailbox_maps)
 
 
 # == processing ==
-resolve $1
+resolve $(echo "$1" | sed 's/<\(.*\)>/\1/')
