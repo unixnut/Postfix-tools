@@ -100,7 +100,7 @@ resolve_addr()
   # $virtual_alias_maps files have domain-only entries
   if [ -n "$virtual_alias_maps" ] ; then
     # FIXME: support comma-separated
-    for map in $virtual_alias_maps ; do
+    for map in $(echo $virtual_alias_maps | sed 's/,//g') ; do
       results=$(resolve_virtual "$1" $map)
       if [ -n "$results" ] ; then
         # we got one or more results; resolve them recursively
@@ -117,7 +117,7 @@ resolve_addr()
   mailbox=
   if [ -n "$virtual_mailbox_maps" ] ; then
     # FIXME: support comma-separated
-    for map in $virtual_mailbox_maps ; do
+    for map in $(echo $virtual_mailbox_maps | sed 's/,//g') ; do
       result=$(resolve_virtual "$1" $map)
       if [ -n "$result" ] ; then
         # we got a partial file name
@@ -144,7 +144,15 @@ resolve_addr()
     return
   fi
 
-  # FIXME: test for local delivery (to a canonical domain) and reprocess
+  # test for local delivery (to a canonical domain) and reprocess
+  for dest in $(echo $(get_conf mydestination) $(get_conf inet_interfaces) $(get_conf proxy_interfaces) |
+                sed -e 's/,//g' -e 's/loopback-only/127.0.0.1/') ; do
+    if [ "$dest" = "$domain" ] ; then
+      resolve_local "$user"
+      # don't bother checking any more maps or methods
+      return
+    fi
+  done
 
   if [ $local_only = n ] ; then
     # default: assume external address
