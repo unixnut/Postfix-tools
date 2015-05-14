@@ -108,7 +108,7 @@ resolve_addr()
   # $virtual_alias_maps files have domain-only entries
   if [ -n "$virtual_alias_maps" ] ; then
     # FIXME: support comma-separated
-    for map in $(echo $virtual_alias_maps | sed 's/,//g') ; do
+    for map in $(echo $virtual_alias_maps | sed 's/,[[:space:]]*/ /g') ; do
       results=$(resolve_virtual "$1" $map)
       if [ -n "$results" ] ; then
         # we got one or more results; resolve them recursively
@@ -125,7 +125,7 @@ resolve_addr()
   mailbox=
   if [ -n "$virtual_mailbox_maps" ] ; then
     # FIXME: support comma-separated
-    for map in $(echo $virtual_mailbox_maps | sed 's/,//g') ; do
+    for map in $(echo $virtual_mailbox_maps | sed 's/,[[:space:]]*/ /g') ; do
       result=$(resolve_virtual "$1" $map)
       if [ -n "$result" ] ; then
         # we got a partial file name
@@ -154,8 +154,12 @@ resolve_addr()
 
   # test for local delivery (to a canonical domain) and reprocess
   # TO-DO: replace " all " (or at EOL) with all addresses
-  for dest in $(echo $(get_conf -n mydestination) $(get_conf inet_interfaces) $(get_conf proxy_interfaces) |
-                       sed -e "s/\$myorigin/$myorigin/g" -e 's/,//g' -e 's/loopback-only/127.0.0.1/') ; do
+  for dest in $(echo $(get_conf -n mydestination) \
+                     $(get_conf inet_interfaces) \
+                     $(get_conf proxy_interfaces) |
+                  sed -e "s/\$myorigin/$myorigin/g" \
+                      -e 's/,[[:space:]]*/ /g' \
+                      -e 's/loopback-only/127.0.0.1/') ; do
     if [ "$dest" = "$domain" ] ; then
       resolve_local "$user"
       # don't bother checking any more maps or methods
@@ -279,9 +283,9 @@ if [ "$(echo $myorigin | cut -c1)" = '/' ] ; then
   myorigin=$(cat $myorigin)
 fi
 
-alias_maps=$(get_conf alias_maps)
+alias_maps=$(get_conf alias_maps | sed 's/,[[:space:]]*/ /g')
 
-virtual_alias_maps=$(get_conf virtual_alias_maps)
+virtual_alias_maps=$(get_conf virtual_alias_maps | sed 's/,[[:space:]]*/ /g')
 # for testing
 ## virtual_alias_maps=hash:virtual
 
