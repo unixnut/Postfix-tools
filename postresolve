@@ -158,6 +158,7 @@ resolve_addr()
                      $(get_conf inet_interfaces) \
                      $(get_conf proxy_interfaces) |
                   sed -e "s/\$myorigin/$myorigin/g" \
+                      -e "s/\$myhostname/$myhostname/g" \
                       -e 's/,[[:space:]]*/ /g' \
                       -e 's/loopback-only/127.0.0.1/') ; do
     if [ "$dest" = "$domain" ] ; then
@@ -277,6 +278,8 @@ fi
 
 
 # == preparation ==
+myhostname=$(get_conf myhostname)
+
 myorigin=$(get_conf myorigin)
 # check if it's a file reference
 if [ "$(echo $myorigin | cut -c1)" = '/' ] ; then
