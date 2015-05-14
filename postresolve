@@ -1,7 +1,7 @@
 #! /bin/sh
 # postresolve (Bourne shell script) -- Perform limited Postfix-style address resolution
 #
-# Version: 0.8
+# Version: 0.8.1
 # Copyright: (c)2015 Alastair Irvine <alastair@plug.org.au>
 # Keywords: postfix addresses e-mail
 # See: https://github.com/unixnut/Postfix-tweaks
@@ -58,6 +58,7 @@ get_conf()
   # determine whether or not to interpolate "$xyz" at start of value
   if [ "x$1" = x-n ] ; then
     interpolate=n
+    shift
   else
     interpolate=y
   fi
