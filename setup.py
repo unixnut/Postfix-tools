@@ -21,8 +21,8 @@ setup(
     author="Alastair Irvine",
     author_email='alastair@plug.org.au',
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
-        'Intended Audience :: Developers',
+        'Development Status :: 4 - Beta',
+        'Intended Audience :: System Administrators',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Natural Language :: English',
         "Programming Language :: Python :: 2",
@@ -39,6 +39,7 @@ setup(
             'postscan=postscan.cli:main',
         ],
     },
+    scripts=['bin/postresolve', 'bin/tweak_clamav-milter'],
     install_requires=requirements,
     license="GNU General Public License v3",
     long_description=readme + '\n\n' + history,
@@ -49,7 +50,7 @@ setup(
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,
-    url='https://github.com/unixnut/postscan',
+    url='https://github.com/unixnut/Postfix-tools',
     version='1.0',
     zip_safe=False,
 )
