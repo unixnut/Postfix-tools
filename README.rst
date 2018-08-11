@@ -27,31 +27,33 @@ a busy system.
 
 Makes the following assumptions:
 
-  - Postfix is your MTA
-  - dovecot-lda is your delivery agent
-  - (optional) SpamAssassin is set up
+- Postfix is your MTA
+- dovecot-lda is your delivery agent
+- (optional) SpamAssassin is set up
 
-Run **`postscan --help`** for command-line options.
+Run ``postscan --help`` for command-line options.
 
 postresolve
 -----------
 
-Since `sendmail -bv` doesn't work as expected, this fakes it to show you what a
+Since ``sendmail -bv`` doesn't work as expected, this fakes it to show you what a
 given user resolves to (e.g. by processing aliases)
 
 tweak_clamav-milter
 -------------------
 
-This script assumes `clamav-milter` and SpamAssassin have been installed.
+This script assumes ``clamav-milter`` and SpamAssassin have been installed.
 
-    tweak_clamav-milter
+::
+
+  tweak_clamav-milter
 
 This will alter the configurations to suit SpamAssassin and ClamAV being
 invoked at SMTP time by milters, e.g. mail filter plugins.
 
-Then, in your Postfix `main.cf`, set:
+Then, in your Postfix ``main.cf``, set::
 
-    smtpd_milters = unix:/spamass/spamass.sock, unix:/clamav/clamav-milter.ctl
+  smtpd_milters = unix:/spamass/spamass.sock, unix:/clamav/clamav-milter.ctl
 
 .. include:: AUTHORS.rst
 
