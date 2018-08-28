@@ -9,7 +9,9 @@ import socket
 
 
 class Scanner(object):
-    def __init__(self, include_local):
+    def __init__(self, include_local, logger):
+        self.log = logger
+
         hostname = socket.gethostname()
 
         # These identify relevant log lines
@@ -37,7 +39,7 @@ class Scanner(object):
         qmgr_regex =  dh_regex + 'postfix/qmgr\[(\d+)\]: (\w+): '
         qmgr_re =     re.compile(qmgr_regex)
         # E.g. "... from=<melissa@pagetraffic.tech>, size=3900, nrcpt=1 (queue active)"
-        envfrom_regex = qmgr_regex + 'from=<([-\w\.]+@[-\w\.]+)>.* nrcpt=(\d+)'
+        envfrom_regex = qmgr_regex + 'from=<([-\w!#$%&\'*+/=?^_`{|}~.]+@[-\w.]+)>.* nrcpt=(\d+)'
         envfrom_re  = re.compile(envfrom_regex)
         spamd_regex = dh_regex + 'spamd\[(\d+)\]: spamd: '
         spamd_re =    re.compile(spamd_regex)
@@ -64,7 +66,7 @@ class Scanner(object):
             self.rd.append((pickup_re, 'pickup'))
 
 
-    def find(self, s):
+    def find(self, s, line_num):
         """
         Iterates through a list of tuples of the form (re_object, label).
         If one of those matches, return the label and the match group.

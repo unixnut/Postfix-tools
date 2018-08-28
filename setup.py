@@ -18,6 +18,7 @@ setup_requirements = [ ]
 test_requirements = [ ]
 
 setup(
+    name='Postfix-tools',
     author="Alastair Irvine",
     author_email='alastair@plug.org.au',
     classifiers=[
@@ -45,7 +46,6 @@ setup(
     long_description=readme + '\n\n' + history,
     include_package_data=True,
     keywords='postscan',
-    name='postscan',
     packages=find_packages(include=['postscan']),
     setup_requires=setup_requirements,
     test_suite='tests',

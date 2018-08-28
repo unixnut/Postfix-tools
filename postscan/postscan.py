@@ -17,7 +17,9 @@ from .scanner import Scanner
 
 class Controller(object):
     def __init__(self, params, logger):
-        self.scanner = Scanner(params['local'])
+        self.log = logger
+
+        self.scanner = Scanner(params['local'], logger)
 
         if params['client_ip']:
             ip_re = re.compile(params['client_ip'])
@@ -27,13 +29,11 @@ class Controller(object):
 
 
     def parse_stream(self, stream):
-        line_num = 1
-        for line in stream:
-            result = self.scanner.find(line)
+        for line_num, line in enumerate(stream):
+            result = self.scanner.find(line, line_num + 1)
             if result:
                 label, groups = result
-                self.handler.dispatch(label, groups, line_num)
+                self.log.debug("Handling %s on %d", label, line_num + 1)
+                self.handler.dispatch(label, groups, line_num + 1)
             ## else:
             ##     print("?")
-
-            line_num = line_num + 1

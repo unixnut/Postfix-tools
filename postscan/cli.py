@@ -8,7 +8,7 @@ import sys
 import click
 import logging
 
-from postscan import Controller
+from .postscan import Controller
 
 
 @click.command()
@@ -25,6 +25,9 @@ def main(to, client_ip, local, spam_level, verbose, args=None):
     """Console script for postscan."""
     
     logger = logging.getLogger("postscan")
+    logger.addHandler(logging.StreamHandler())
+    if verbose:
+        logger.setLevel(logging.DEBUG)
 
     params = {}
     params['to'] = to
