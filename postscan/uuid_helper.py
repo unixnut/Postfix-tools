@@ -16,3 +16,6 @@ class UUIDs(object):
 
     def peek(self):
         return self.uuids[0]
+
+    def empty(self):
+        return len(self.uuids) == 0

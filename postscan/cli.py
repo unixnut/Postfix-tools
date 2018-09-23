@@ -21,7 +21,8 @@ from .postscan import Controller
 @click.option('-s', '--spam-level', type=click.INT,
               help="Ignores if the integer spam level is greater than or equal to <level>")
 @click.option('-v', '--verbose', count=True)
-def main(to, client_ip, local, spam_level, verbose, args=None):
+@click.argument('files', type=click.File(), nargs=-1)
+def main(files, to, client_ip, local, spam_level, verbose, args=None):
     """Console script for postscan."""
     
     logger = logging.getLogger("postscan")
@@ -37,8 +38,13 @@ def main(to, client_ip, local, spam_level, verbose, args=None):
 
     controller = Controller(params, logger)
 
-    # TO-DO: handle multiple files, etc.
-    return controller.parse_stream(sys.stdin)
+    if files:
+        for stream in files:
+            controller.parse_stream(stream)
+    else:
+        controller.parse_stream(sys.stdin)
+
+    return 0
 
 
 if __name__ == "__main__":

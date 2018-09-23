@@ -6,8 +6,7 @@ from .uuid_helper import UUIDs
 # TO-DO: implement handle_pickup()
 class StateMachine(object):
     messages = {}
-    messages_by_id = {}
-    self.id_user_queue_map = []  # Each msg_id mapping is {'queue_ids': [], 'users': []}
+    deliveries_by_id = {}     # Mapping of message-id to { <username>: {<delivery-data>}}
     uuid_queue = UUIDs()
 
 
@@ -32,7 +31,8 @@ class StateMachine(object):
         dt, smtpd_pid, queue_id, host, ip = match_groups
         self.log.debug(queue_id)
         if self.ip_re is None or not self.ip_re.match(ip):
-            self.messages[queue_id] = {'dt': dt, 'ip': ip, 'fake_msg_id': False}
+            self.messages[queue_id] = {'dt': dt, 'ip': ip, 'fake_msg_id': False,
+                                       'duplicate_msg_id': False, 'blessed': False}
 
 
     def handle_disconnect(self, match_groups, line_num):
@@ -52,16 +52,16 @@ class StateMachine(object):
                 self.messages[queue_id]['fake_msg_id'] = True
                 self.log.debug("cleanup pushing id: %s", msg_id)
 
+            self.messages[queue_id]['to'] = []
             self.messages[queue_id]['msg_id'] = msg_id
-            if msg_id in self.messages_by_id:
-                # Duplicate msg_id
-                self.id_user_queue_map[msg_id] = {'queue_ids': [self.messages_by_id[msg_id]], 'users': []}
-                self.messages_by_id[msg_id] = None
+            if msg_id in self.deliveries_by_id:
+                # It's a duplicate
+                ## self.messages[queue_id]['msg_id_count'] += 1
+                pass
             else:
                 # Normal case
-                self.messages_by_id[msg_id] = queue_id
-            self.messages[queue_id]['to'] = []
-            self.messages[queue_id]['deliveries'] = {}
+                self.deliveries_by_id[msg_id] = {}
+            ## self.messages[queue_id]['deliveries'] = {}
 
 
     def handle_envfrom(self, match_groups, line_num):
@@ -82,53 +82,52 @@ class StateMachine(object):
             self.log.debug("result peeking id: %s", msg_id)
             uuid_del = True
 
-        if msg_id in self.messages_by_id:
-            queue_id = self.messages_by_id[msg_id]
-            if self.discard_threshold is None or \
-               int_score < self.discard_threshold:
-                self.log.debug("score is %d (%s)", int(int_score), user)
-                self.messages[queue_id]['last_int_score'] = int(int_score)
-                self.messages[queue_id]['deliveries'][user] = { 'int_score': int(int_score), 'user': user, 'count': 1 }
-            else:
-                self.log.debug("X %s", queue_id)
-                del self.messages[queue_id]
-                del self.messages_by_id[msg_id]
-                if uuid_del: self.uuid_queue.pop()
+        self.log.debug("%s", msg_id)
+
+        # Note: queue_id is not uniqe per message-id, so only store info per message-id
+        if msg_id in self.deliveries_by_id:
+            self.log.debug("score is %d (%s)", int(int_score), user)
+            self.record_delivery(msg_id, user, int(int_score))
 
 
     def handle_lda(self, match_groups, line_num):
         dt, user, msg_id, mailbox = match_groups
-        if not msg_id:
-            # For messages without an ID ("msgid=unspecified"), get the first one
-            # from the queue, i.e. last in, first out order
-            msg_id = self.uuid_queue.pop()
-            self.log.debug("LDA scan popping id; %d left", len(self.uuid_queue.uuids))
 
-        if msg_id in self.messages_by_id:
-            queue_id = self.messages_by_id[msg_id]
+        if not msg_id:
+            # For messages without an ID ("msgid=unspecified"), look at the first one
+            # on the queue, i.e. last in, first out order
+            if self.uuid_queue.empty():
+                return
+            msg_id = self.uuid_queue.peek()
+
+        if msg_id in self.deliveries_by_id:
+            # Note: queue_id is not uniqe per message-id, so only store info per message-id
+            ## queue_id = self.deliveries_by_id[msg_id]
             # Record the delivery, with a spam score if available
-            if 'user' in self.messages[queue_id]['deliveries']:
-                u = self.messages[queue_id]['deliveries'][user]
-                u['mailbox'] = mailbox
-                u['count'] += 1
+            if user in self.deliveries_by_id[msg_id]:
+                self.deliveries_by_id[msg_id][user]['mailbox'] = mailbox
+                self.deliveries_by_id[msg_id][user]['count'] += 1
             else:
-                if 'last_int_score' in self.messages[queue_id]:
-                    int_score = self.messages[queue_id]['last_int_score']
-                else:
-                    int_score = 0
-                self.messages[queue_id]['deliveries'][user] = { 'int_score': int_score, 'user': user, 'mailbox': mailbox, 'count': 1 }
+                self.record_delivery(msg_id, user, None, mailbox)
         else:
             self.log.debug("Ignoring LDA for %s", msg_id)
 
 
+    def record_delivery(self, msg_id, user, int_score=None, mailbox=None):
+        self.deliveries_by_id[msg_id][user] = { 'int_score': int_score, 'user':
+                                                user, 'count': 1 }
+        if mailbox:
+            self.deliveries_by_id[msg_id][user]['mailbox'] = mailbox
+
+
     def handle_local(self, match_groups, line_num):
         dt, local_pid, queue_id, rcpt, envto = match_groups
-        if queue_id in self.messages and \
-            (self.target_rcpt is None or \
-             self.target_rcpt == rcpt or self.target_rcpt == envto):
+        if queue_id in self.messages:
             ## if envto:
             ## print(line_num, file=sys.stderr)
-            self.messages[queue_id]['to'].append((rcpt, envto))
+            parts = rcpt.lower().split("@")
+            self.messages[queue_id]['to'].append((rcpt, envto, parts[0]))
+            self.messages[queue_id]['blessed'] = self.target_rcpt in (None, rcpt, envto)
 
 
     def handle_removed(self, match_groups, line_num):
@@ -136,25 +135,51 @@ class StateMachine(object):
         self.log.debug(queue_id + " deleted")
         if queue_id in self.messages:
             msg_id = self.messages[queue_id]['msg_id']
-            m = self.messages[queue_id]
-            print(queue_id + ": ({dt}) {envfrom} [{ip}]\n  ({msg_id})".format(**m))
-            # Note: each delivery is not currently tied to a recipient
-            for rcpt, envto in m['to']:
-                if envto:
-                    print("  {0} = {1}".format(rcpt, envto))
-                else:
-                    print("  {0}".format(rcpt))
-            for user in m['deliveries']:
-                d = m['deliveries'][user]
-                if 'mailbox' in m['deliveries'][user]:
-                    print("  ...{user}: saved to '{mailbox}', spam level {int_score}".format(**d))
-                else:
-                    # It's a system user used only for spam scoring
-                    pass
-            print("")
+            if 'envfrom' not in self.messages[queue_id]:
+                # Bounce message
+                self.messages[queue_id]['envfrom'] = "<mail daemon>"
+            default_score = None
+            max_int_score = -1000
+            if msg_id in self.deliveries_by_id:
+                for username in self.deliveries_by_id[msg_id]:
+                    delivery = self.deliveries_by_id[msg_id][username]
+                    if max_int_score < delivery['int_score']:
+                        max_int_score = delivery['int_score']
+                    if 'mailbox' not in delivery:
+                        default_score = delivery['int_score']
 
+            if (self.discard_threshold is None or \
+                max_int_score < self.discard_threshold) and \
+               self.messages[queue_id]['blessed']:
+                self.print_info(queue_id, default_score)
+            else:
+                self.log.debug("X %s", queue_id)
+            if msg_id in self.deliveries_by_id:
+                del self.deliveries_by_id[msg_id]
+
+            if self.messages[queue_id]['fake_msg_id']:
+                fake_msg_id = self.uuid_queue.pop()
+                assert fake_msg_id == msg_id
+                self.log.debug("handle_removed() popping id; %d left", len(self.uuid_queue.uuids))
             del self.messages[queue_id]
-            del self.messages_by_id[msg_id]
+
+
+    def print_info(self, queue_id, default_score):
+        msg_id = self.messages[queue_id]['msg_id']
+        m = self.messages[queue_id]
+        print(queue_id + ": ({dt}) {envfrom} [{ip}]\n  ({msg_id})".format(**m))
+        # Note: each delivery is not currently tied to a recipient
+        for rcpt, envto, username in m['to']:
+            if envto:
+                print("  {0} = {1}".format(rcpt, envto))
+            else:
+                print("  {0}".format(rcpt))
+            if msg_id in self.deliveries_by_id and username in self.deliveries_by_id[msg_id]:
+                delivery = self.deliveries_by_id[msg_id][username]
+                if delivery['int_score'] is None:
+                    delivery['int_score'] = default_score
+                print("  ...{user}: saved to '{mailbox}', spam level {int_score}".format(**delivery))
+        print("")
 
 
     def handle_rejected(self, match_groups, line_num):
@@ -163,3 +188,8 @@ class StateMachine(object):
         if queue_id in self.messages:
             msg_id = self.messages[queue_id]['msg_id']
             if self.messages[queue_id]['fake_msg_id']: self.uuid_queue.pop()
+
+
+    def cleanup(self):
+        self.log.debug("zombie messages: %d; zombie message IDs: %d",
+                       len(self.messages), len(self.deliveries_by_id))

@@ -29,11 +29,13 @@ class Controller(object):
 
 
     def parse_stream(self, stream):
-        for line_num, line in enumerate(stream):
-            result = self.scanner.find(line, line_num + 1)
+        for i, line in enumerate(stream):
+            line_num = i + 1
+            result = self.scanner.find(line, line_num)
             if result:
                 label, groups = result
-                self.log.debug("Handling %s on %d", label, line_num + 1)
-                self.handler.dispatch(label, groups, line_num + 1)
+                self.log.debug("Handling %s on %d", label, line_num)
+                self.handler.dispatch(label, groups, line_num)
             ## else:
             ##     print("?")
+        self.handler.cleanup()
