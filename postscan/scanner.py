@@ -14,6 +14,8 @@ class Scanner(object):
 
         hostname = socket.gethostname()
 
+        uuid_regex = r'[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}'
+
         # These identify relevant log lines
         # Date & host, e.g. "Aug 10 16:14:36 cagney "
         dh_regex =    '(\w{3} +\d+ \d{2}:\d{2}:\d{2}) %s ' % hostname
@@ -54,12 +56,13 @@ class Scanner(object):
                                   .format(spamd_regex, msg_id_regex))
         # E.g. "... dovecot: lda(xyz): sieve: msgid=<f2f99cbdae05cab1de81cb0b3d519a98@RobertBanas.download>: stored mail into mailbox 'INBOX'"
         #   or "... dovecot: lda(xyz): sieve: msgid=<5B34496C16872430@smtp.telstra.com> (added by postmaster@smtp.telstra.com): stored mail into mailbox 'INBOX'
-
+        #   or "... dovecot: lda(xyz): sieve: msgid=7a91f8d9-7f2d-4217-9498-a3fe503a68a8: stored mail into mailbox ' Spam'"
         #   or "... dovecot: lda(xyz): sieve: msgid=unspecified: stored mail into mailbox ' Spam'"
-        lda_re =      re.compile('{0}dovecot: lda\(([^)]+)\): sieve: '
-                                 'msgid=(?:[? ]*<({1})>(?: \([^)]*\))?|unspecified): '
-                                 'stored mail into mailbox \'([^\']+)\''
-                                   .format(dh_regex, msg_id_regex))
+        #   or "... dovecot: lda(xyz): sieve: msgid=<5df9507c519f93780b2a8b8d4.19d1d6f996.20200628233841.0c38b20919.fc08a18c@mail20.sea91.rsgsv.net>: marked message to be discarded if not explicitly delivered (discard action)"
+        lda_re =      re.compile(r'{0}dovecot: lda\(([^)]+)\): sieve: '
+                                 r'msgid=(?:[? ]*(?:<({1})>|({2}))(?: \([^)]*\))?|unspecified)'
+                                 r"(?:: stored mail into mailbox '([^']+)')?"
+                                   .format(dh_regex, msg_id_regex, uuid_regex))
         # E.g. "... postfix/local[8270]: 2FECF667738: to=<user@xyz.com.au>, orig_to=<info@xyz.com.au>, relay=local, delay=3.3, delays=3.2/0/0/0.04, dsn=2.0.0, status=sent (delivered to command: /usr/lib/dovecot/dovecot-lda -f "$SENDER" -a "$ORIGINAL_RECIPIENT" -d "$USER")"
         local_re =    re.compile(dh_regex + 'postfix/local\[(\d+)\]: (\w+): to=<([-\w\.]+@[-\w\.]+)>, (?:orig_to=<([-\w\.]+@[-\w\.]+)>)?')
         # E.g. "... 2FECF667738: removed"

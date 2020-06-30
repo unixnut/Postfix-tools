@@ -25,7 +25,7 @@ class Controller(object):
             ip_re = re.compile(params['client_ip'])
         else:
             ip_re = None
-        self.handler = StateMachine(params['to'], params['spam_level'], ip_re, logger)
+        self.handler = StateMachine(params['to'], params['spam_level'], ip_re, logger.getChild('state'))
 
 
     def parse_stream(self, stream):

@@ -8,6 +8,7 @@ class StateMachine(object):
     messages = {}
     deliveries_by_id = {}     # Mapping of message-id to { <username>: {<delivery-data>}}
     uuid_queue = UUIDs()
+    uuid_owners = {}          # Mapping of fake msg_id string to username string
 
 
     def __init__(self, target_rcpt, discard_threshold, ip_re, logger):
@@ -31,7 +32,7 @@ class StateMachine(object):
         dt, smtpd_pid, queue_id, host, ip = match_groups
         self.log.debug(queue_id)
         if self.ip_re is None or not self.ip_re.match(ip):
-            self.messages[queue_id] = {'dt': dt, 'ip': ip, 'fake_msg_id': False,
+            self.messages[queue_id] = {'dt': dt, 'ip': ip, 'msg_id_faked': False,
                                        'duplicate_msg_id': False, 'blessed': False}
 
 
@@ -40,6 +41,8 @@ class StateMachine(object):
 
 
     def handle_cleanup(self, match_groups, line_num):
+
+        # E.g. "... postfix/cleanup[44462]: EBA07667720: message-id=<1533884753792.b2c522e5-18f2-4b30-bd0d-1a622ab63539@notify.sendle.com>"
         dt, cleanup_pid, queue_id, msg_id = match_groups
         self.log.debug(queue_id)
 
@@ -49,7 +52,7 @@ class StateMachine(object):
                 # front of the queue, i.e. last in, first out order; this is done
                 # even if ignoring this message, to keep pushes and pops balanced.
                 msg_id = self.uuid_queue.create()
-                self.messages[queue_id]['fake_msg_id'] = True
+                self.messages[queue_id]['msg_id_faked'] = True
                 self.log.debug("cleanup pushing id: %s", msg_id)
 
             self.messages[queue_id]['to'] = []
@@ -72,26 +75,43 @@ class StateMachine(object):
 
 
     def handle_result(self, match_groups, line_num):
+        """Handle a spamd result line with the message score, tags and
+        properties."""
+
         dt, spamd_pid, int_score, tags, user, msg_id = match_groups
         uuid_del = False  # Do we need to clean up the queue or save for handle_local()?
 
         if not msg_id:
             # For messages without an ID ("mid=(unknown)"), get the first one
-            # from the queue, i.e. last in, first out order
+            # from the queue, i.e. last in, first out order; hunt for the
+            # correct fake msg_id in the queue unless the message was delivered
+            # to multiple recipients
             msg_id = self.uuid_queue.peek()
-            self.log.debug("result peeking id: %s", msg_id)
+            if user != 'spamass-milter':
+                # Check for the case where this is a "new" UUID
+                if msg_id not in self.uuid_owners or \
+                   self.uuid_owners[msg_id] != user:
+                    # Cycle through UUIDs to find the first un-owned one and claim it
+                    queue_index = 0
+                    while msg_id in self.uuid_owners:
+                        queue_index += 1
+                        msg_id = self.uuid_queue.peek(queue_index)
+                    self.uuid_owners[msg_id] = user
+
             uuid_del = True
 
-        self.log.debug("%s", msg_id)
+        self.log.debug("result id: %s", msg_id)
 
-        # Note: queue_id is not uniqe per message-id, so only store info per message-id
+        # Note: queue_id is not unique per message-id, so only store info per message-id
         if msg_id in self.deliveries_by_id:
             self.log.debug("score is %d (%s)", int(int_score), user)
             self.record_delivery(msg_id, user, int(int_score))
 
 
     def handle_lda(self, match_groups, line_num):
-        dt, user, msg_id, mailbox = match_groups
+        dt, user, msg_id_a, msg_id_b, mailbox = match_groups
+
+        msg_id = msg_id_a if msg_id_a else msg_id_b
 
         if not msg_id:
             # For messages without an ID ("msgid=unspecified"), look at the first one
@@ -101,7 +121,7 @@ class StateMachine(object):
             msg_id = self.uuid_queue.peek()
 
         if msg_id in self.deliveries_by_id:
-            # Note: queue_id is not uniqe per message-id, so only store info per message-id
+            # Note: queue_id is not unique per message-id, so only store info per message-id
             ## queue_id = self.deliveries_by_id[msg_id]
             # Record the delivery, with a spam score if available
             if user in self.deliveries_by_id[msg_id]:
@@ -157,10 +177,14 @@ class StateMachine(object):
             if msg_id in self.deliveries_by_id:
                 del self.deliveries_by_id[msg_id]
 
-            if self.messages[queue_id]['fake_msg_id']:
-                fake_msg_id = self.uuid_queue.pop()
+            if self.messages[queue_id]['msg_id_faked']:
+                fake_msg_id = self.uuid_queue.pop(msg_id)
                 assert fake_msg_id == msg_id
                 self.log.debug("handle_removed() popping id; %d left", len(self.uuid_queue.uuids))
+                self.log.debug("uuid_owners: %s", self.uuid_owners)
+                if msg_id in self.uuid_owners:
+                    # This is only present when the username is not "spamass-milter"
+                    del self.uuid_owners[msg_id]
             del self.messages[queue_id]
 
 
@@ -178,7 +202,9 @@ class StateMachine(object):
                 delivery = self.deliveries_by_id[msg_id][username]
                 if delivery['int_score'] is None:
                     delivery['int_score'] = default_score
-                print("  ...{user}: saved to '{mailbox}', spam level {int_score}".format(**delivery))
+                fields = {'mailbox': "(none)"}
+                fields.update(delivery)
+                print("  ...{user}: saved to '{mailbox}', spam level {int_score}".format(**fields))
         print("")
 
 
@@ -187,7 +213,8 @@ class StateMachine(object):
 
         if queue_id in self.messages:
             msg_id = self.messages[queue_id]['msg_id']
-            if self.messages[queue_id]['fake_msg_id']: self.uuid_queue.pop()
+            if self.messages[queue_id]['msg_id_faked']:
+                self.uuid_queue.pop()
 
 
     def cleanup(self):

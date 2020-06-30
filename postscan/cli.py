@@ -5,8 +5,9 @@
 from __future__ import absolute_import
 
 import sys
-import click
 import logging
+
+import click
 
 from .postscan import Controller
 
@@ -21,14 +22,21 @@ from .postscan import Controller
 @click.option('-s', '--spam-level', type=click.INT,
               help="Ignores if the integer spam level is greater than or equal to <level>")
 @click.option('-v', '--verbose', count=True)
+@click.option('-o', '--stdout', default=False,
+              help="Logs to stdout instead of stderr")
 @click.argument('files', type=click.File(), nargs=-1)
-def main(files, to, client_ip, local, spam_level, verbose, args=None):
+def main(files, to, client_ip, local, spam_level, verbose, stdout, args=None):
     """Console script for postscan."""
     
     logger = logging.getLogger("postscan")
-    logger.addHandler(logging.StreamHandler())
+    if stdout:
+        logger.addHandler(logging.StreamHandler(sys.stdout))
+    else:
+        logger.addHandler(logging.StreamHandler())
     if verbose:
         logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
 
     params = {}
     params['to'] = to
