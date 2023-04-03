@@ -1,4 +1,4 @@
-.PHONY: clean clean-test clean-pyc clean-build docs help
+.PHONY: clean clean-test clean-pyc clean-build docs help install script_install
 .DEFAULT_GOAL := help
 
 define BROWSER_PYSCRIPT
@@ -89,3 +89,7 @@ install: clean ## install the package to the active Python's site-packages
 
 tags: $(find postscan -name \*.py)
 	ctags -R postscan
+
+script_install: /usr/local/sbin/postresolve
+/usr/local/sbin/postresolve: bin/postresolve
+	install -p $^ $@

@@ -1,7 +1,7 @@
 #! /bin/sh
 # postresolve (Bourne shell script) -- Perform limited Postfix-style address resolution
 #
-# Version: 0.8.1
+# Version: 1.0.0
 # Copyright: (c)2015 Alastair Irvine <alastair@plug.org.au>
 # Keywords: postfix addresses e-mail
 # See: https://github.com/unixnut/Postfix-tweaks
@@ -26,6 +26,12 @@
 #   -b | --brief        Don't annotate users, filenames, etc.
 #   -c | --compatible   Produce output similar to "sendmail -bv" on a sendmail system
 #   -l | --local-only   Show local addresses only
+#   -v                  Same as --compatible --local-only
+#
+# To be spamass-milter compatibile, postresolve has to accept the -bv options
+# as if it was sendmail(1).  -b is ignored in this case as it occurs first and
+# the mode is then changed.
+#
 #
 # Licence details:
 #     This program is free software; you can redistribute it and/or modify
@@ -47,7 +53,7 @@
 
 
 self=`basename "$0"`
-allowed_options=fbclh
+allowed_options=fbclhv
 allowed_long_options=help,brief,compatible,local-only
 
 
@@ -246,7 +252,6 @@ resolve()
 # == command-line parsing ==
 # -- defaults --
 debug=0
-verbose=0
 brief=n
 first_only=n
 local_only=n
@@ -266,8 +271,8 @@ while [ x"$1" != x-- ] ; do
     -c|--compatible) mode=compatible ;;
     -f|--first-only) first_only=y ;;
     -l|--local-only) local_only=y ;;
+    -v)              mode=compatible ; local_only=y ;;
     -d) debug=$((debug + 1)) ;;
-    -v|--verbose) verbose=$((verbose + 1)) ;;
     -h|--help) help ;;
   esac
   shift       # get rid of the option (or its arg if the inner shift already got rid it)
