@@ -1,5 +1,7 @@
-.PHONY: clean clean-test clean-pyc clean-build docs help install script_install
+.PHONY: clean clean-test clean-pyc clean-build docs help install script_install upload
 .DEFAULT_GOAL := help
+
+VERSION = 1.1.1
 
 define BROWSER_PYSCRIPT
 import os, webbrowser, sys
@@ -79,7 +81,9 @@ servedocs: docs ## compile the docs watching for changes
 release: dist ## package and upload a release
 	twine upload dist/*
 
-dist: clean ## builds source and wheel package
+dist: clean dist/Postfix_tools-$(VERSION)-py2.py3-none-any.whl ## builds source and wheel package
+
+dist/Postfix_tools-$(VERSION)-py2.py3-none-any.whl:
 	python setup.py sdist
 	python setup.py bdist_wheel
 	ls -l dist
@@ -93,3 +97,7 @@ tags: $(find postscan -name \*.py)
 script_install: /usr/local/sbin/postresolve
 /usr/local/sbin/postresolve: bin/postresolve
 	install -p $^ $@
+
+upload: dist/Postfix_tools-$(VERSION)-py2.py3-none-any.whl
+	twine check dist/Postfix_tools-$(VERSION)-py2.py3-none-any.whl
+	twine upload dist/Postfix_tools-$(VERSION)-py2.py3-none-any.whl

@@ -6,11 +6,6 @@ Postfix tools
 .. image:: https://img.shields.io/pypi/v/postscan.svg
         :target: https://pypi.python.org/pypi/postscan
 
-.. image:: https://readthedocs.org/projects/postscan/badge/?version=latest
-        :target: https://postscan.readthedocs.io/en/latest/?badge=latest
-        :alt: Documentation Status
-
-
 
 
 Tools, scripts and config for use with the Postfix MTA.
@@ -32,6 +27,8 @@ Makes the following assumptions:
 - (optional) SpamAssassin is set up
 
 Run ``postscan --help`` for command-line options.
+
+TO-DO: Show local messages generated from redirects without having to use -l
 
 postresolve
 -----------
@@ -55,7 +52,14 @@ Then, in your Postfix ``main.cf``, set::
 
   smtpd_milters = unix:/spamass/spamass.sock, unix:/clamav/clamav-milter.ctl
 
-.. include:: AUTHORS.rst
+=======
+Credits
+=======
+
+Development Lead
+----------------
+
+* Alastair Irvine <alastair@plug.org.au>
 
 Other Credits
 -------------

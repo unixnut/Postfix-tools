@@ -3,6 +3,7 @@
 """Console script for postscan."""
 
 from __future__ import absolute_import
+from __future__ import print_function
 
 import sys
 import logging
@@ -10,6 +11,7 @@ import logging
 import click
 
 from .postscan import Controller
+from . import __version__
 
 
 @click.command()
@@ -22,12 +24,17 @@ from .postscan import Controller
 @click.option('-s', '--spam-level', type=click.INT,
               help="Ignores if the integer spam level is greater than or equal to <level>")
 @click.option('-v', '--verbose', count=True)
-@click.option('-o', '--stdout', default=False,
+@click.option('-o/-e', '--stdout/--no-stdout', default=False,
               help="Logs to stdout instead of stderr")
+@click.option('-V', '--version', is_flag=True, default=False)
 @click.argument('files', type=click.File(), nargs=-1)
-def main(files, to, client_ip, local, spam_level, verbose, stdout, args=None):
+def main(files, to, client_ip, local, spam_level, verbose, stdout, version, args=None):
     """Console script for postscan."""
-    
+
+    if version:
+        print("postscan v" + __version__)
+        return 0
+
     logger = logging.getLogger("postscan")
     if stdout:
         logger.addHandler(logging.StreamHandler(sys.stdout))
