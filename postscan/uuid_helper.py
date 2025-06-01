@@ -2,10 +2,14 @@ import uuid
 
 
 class UUIDs(object):
-    """A FIFO queue (stack) of auto-generated UUID strings."""
+    """A FIFO queue of auto-generated UUID strings."""
     uuids = []
 
     def create(self):
+        """
+        Make a new ID, add it to the end of the queue and return it.
+        """
+
         u = str(uuid.uuid4())
         self.uuids.append(u)
         return u

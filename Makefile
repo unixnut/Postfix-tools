@@ -1,7 +1,7 @@
 .PHONY: clean clean-test clean-pyc clean-build docs help install script_install upload
 .DEFAULT_GOAL := help
 
-VERSION = 1.1.1
+VERSION = 1.1.2
 
 define BROWSER_PYSCRIPT
 import os, webbrowser, sys

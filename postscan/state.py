@@ -194,6 +194,7 @@ class StateMachine(object):
 
             if self.messages[queue_id]['msg_id_faked']:
                 fake_msg_id = self.uuid_queue.pop(msg_id)
+                self.log.debug("handle_removed() got id %s from queue", fake_msg_id)
                 assert fake_msg_id == msg_id
                 self.log.debug("handle_removed() popping id; %d left", len(self.uuid_queue.uuids))
                 self.log.debug("uuid_owners: %s", self.uuid_owners)
@@ -229,7 +230,11 @@ class StateMachine(object):
         if queue_id in self.messages:
             msg_id = self.messages[queue_id]['msg_id']
             if self.messages[queue_id]['msg_id_faked']:
-                self.uuid_queue.pop()
+                self.uuid_queue.pop(msg_id)
+
+    # TODO
+    def handle_bounce(self, match_groups, line_num):
+        pass
 
 
     def cleanup(self):

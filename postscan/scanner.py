@@ -75,6 +75,9 @@ class Scanner(object):
         # E.g. "... postfix/cleanup[4499]: CADB76676A3: milter-reject: END-OF-MESSAGE from zgz2.honeyanda.com[185.237.96.123]: 5.7.1 Blocked by SpamAssassin; from=<winona@honeyanda.com> to=<user@xyz.com.au> proto=ESMTP helo=<zgz2.honeyanda.com>"
         rejected_re = re.compile(dh_regex + 'postfix/cleanup\[(\d+)\]: (\w+): milter-reject')
 
+        # E.g. "... postfix/bounce[2153401]: 7A27C540AF7: sender non-delivery notification: D9244547B99"
+        ## bounced_re = 
+
         self.rd = [(connect_re, 'connect'), (client_re, 'client'), (disconnect_re, 'disconnect'), (cleanup_re, 'cleanup'), (envfrom_re, 'envfrom'), (result_re, 'result'), (lda_re, 'lda'), (local_re, 'local'), (removed_re, 'removed'), (rejected_re, 'rejected')]
         if include_local:
             self.rd.append((pickup_re, 'pickup'))

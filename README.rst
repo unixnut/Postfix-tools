@@ -28,7 +28,10 @@ Makes the following assumptions:
 
 Run ``postscan --help`` for command-line options.
 
-TO-DO: Show local messages generated from redirects without having to use -l
+TO-DO:
+
+- Show local messages generated from redirects without having to use -l
+- Options to show rejected and/or bounced messages
 
 postresolve
 -----------
